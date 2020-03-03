@@ -3,55 +3,56 @@
 #include "DroitsRetr.h"
 #include "Retraite.h"
 
-const vector<int> NC_NonTit = {S_NC, S_NONTIT};
+const vector<int> NC_NonTit = {S_NC, S_NONTIT}; //// nombre de cotisants non titulaires ?
 
-double CotMalRetrComp(Indiv& X, int age) {
-    int t = X.anaiss%1900 + age;  
-    if(X.retr->pension_ar>0 || X.retr->pension_ag>0||X.retr->pension_ag_ar>0) {
-        return M->TauxMalComp[t] * (X.retr->pension_ag + X.retr->pension_ar+X.retr->pension_ag_ar);        
+double CotMalRetrComp(Indiv& X, int age) { //// Cotisation Maladie payée sur la Retraite Complémentaire
+    int t = X.anaiss%1900 + age;  //// t = année courante
+    if(X.retr->pension_ar>0 || X.retr->pension_ag>0||X.retr->pension_ag_ar>0) { //// Si la pension AGIRC ou la pension ARRCO ou la pension AGIRC-ARRCO est non nulle
+        return M->TauxMalComp[t] * (X.retr->pension_ag + X.retr->pension_ar+X.retr->pension_ag_ar);       //// renvoie le montant de la cotisation maladie payée sur les pensions AGIRC, ARRCO et AGIRC-ARRCO
     }
     return 0.0;
 }
 
-double CSGRet(Indiv& X, int age)
+double CSGRet(Indiv& X, int age)  //// CSG payée sur la pension de retraite
 {
-    int t = X.anaiss%1900 + age;
-    if (X.retr->pension_tot > M->SeuilExoCSG[t])
-        return M->TauxCSGRetFort[t]*X.retr->pension_tot;
+    int t = X.anaiss%1900 + age; //// t = année courante
+    if (X.retr->pension_tot > M->SeuilExoCSG[t]) //// Si la pension de retraite totale est supérieure au seuil d'exonération de CSG
+        return M->TauxCSGRetFort[t]*X.retr->pension_tot; //// renvoie le montant de CSG payée sur la pension.
     else
         return 0;
 }
 
-double CSGSal(Indiv& X, int age)
+double CSGSal(Indiv& X, int age)  //// CSG payée sur le salaire
 {
     int t = X.anaiss%1900 + age;
     return M->TauxCSGSal[t]*X.salaires[age];
 }
 
-double CotAut(Indiv & X, int age)
+double CotAut(Indiv & X, int age) //// Cotisations Autres que la retraite lorsque X a age ans.
 {
     int t = X.anaiss%1900 + age;
 	
 	
-    if(in(X.statuts[age], Statuts_FP))
-        return  M->TauxMalPubTot[t] * X.salaires[age]
-              + M->TauxMalPubTr[t]  * X.salaires[age] / (1+(X.taux_prim))
-			        + M->Taux_FDS[t]* part(X.salaires[age]-M->TauxFP[t]*X.salaires[age]/(1+X.taux_prim), 0 , 4*M->PlafondSS[t])
-			        *(X.salaires[age]-M->TauxFP[t]*X.salaires[age]/(1+X.taux_prim)>309*M->PointFP[t])?1:0;
-    else if(X.statuts[age] == S_CAD) {
-        return 
-             M->TauxMalTot[t] * X.salaires[age]
-            +M->TauxMalSP[t]  * part(X.salaires[age], 0 ,   M->PlafondSS[t])
-            +M->TauxAssedic[t]* part(X.salaires[age], 0 , 4*M->PlafondSS[t])
-			      +M->Taux_APEC[t]*part(X.salaires[age], 0 , 4*M->PlafondSS[t]); //approximation avant 2011 en dessous de 1 PSS part forfaitaire
+    if(in(X.statuts[age], Statuts_FP)) //// Si X est fonctionnaire
+	//// renvoie le montant de cotisation, qui se décompose en 
+        return  M->TauxMalPubTot[t] * X.salaires[age] //// cotisation maladie payée sur l'ensemble du salaire (traitement + primes)
+              + M->TauxMalPubTr[t]  * X.salaires[age] / (1+(X.taux_prim)) //// + cotisation maladie payée sur le traitement sans les primes
+			        + M->Taux_FDS[t]* part(X.salaires[age]-M->TauxFP[t]*X.salaires[age]/(1+X.taux_prim), 0 , 4*M->PlafondSS[t]) //// + cotisation au fonds de solidarité payée sur la partie du salaire diminuée des cotisations (totales ?) sur le traitement hors primes qui dépasse 4 plafonds de sécurité sociale...
+			        *(X.salaires[age]-M->TauxFP[t]*X.salaires[age]/(1+X.taux_prim)>309*M->PointFP[t])?1:0; ////... uniquement si cette partie dépasse 309 fois la valeur du point d'indice.
+    else if(X.statuts[age] == S_CAD) { //// Si X est un cadre du secteur privé
+        return 	//// renvoie le montant de cotisation, qui se décompose en 
+             M->TauxMalTot[t] * X.salaires[age] //// cotisation maladie sur l'ensemble du salaire
+            +M->TauxMalSP[t]  * part(X.salaires[age], 0 ,   M->PlafondSS[t]) //// + cotisation maladie sur la part de salaire inférieure au plafond de la sécurité sociale
+            +M->TauxAssedic[t]* part(X.salaires[age], 0 , 4*M->PlafondSS[t]) //// + cotisation Assedic (chômage) sur la partie de salaire inférieure à 4 plafonds de la sécurité sociale
+			      +M->Taux_APEC[t]*part(X.salaires[age], 0 , 4*M->PlafondSS[t]); //approximation avant 2011 en dessous de 1 PSS part forfaitaire //// + cotisation APEC (assoc pour l'emploi des cadres) sur la part de salaire supérieure à 4 plafonds
 			}
-			else if (X.statuts[age] == S_NC){
-			return 
-			      M->TauxMalTot[t] * X.salaires[age]
+			else if (X.statuts[age] == S_NC){ //// Si X est salarié non cadre du privé
+			return //// renvoie le montant de cotisation, qui esg identique à celui d'un cadre de même salaire sans la cotisation APEC
+			      M->TauxMalTot[t] * X.salaires[age] //// 
             +M->TauxMalSP[t]  * part(X.salaires[age], 0 ,   M->PlafondSS[t])
             +M->TauxAssedic[t]* part(X.salaires[age],  0 , 4*M->PlafondSS[t]);
 			}
-			else return
+			else return //// Si X est dans une autre situation (independant), renvoie le montant des cotisations
 			(M->TauxMalRSI[t]-0.035*(1-part(X.salaires[age], 0, 0.7*M->PlafondSS[t])/(0.7*M->PlafondSS[t])))*part(X.salaires[age], 0, 0.7*M->PlafondSS[t])
             +M->TauxMalRSI[t]*(X.salaires[age]-part(X.salaires[age], 0, 0.7*M->PlafondSS[t])); //formule vraie à partir de 2017 (avant donne une approximation)
 }
