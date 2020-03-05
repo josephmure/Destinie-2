@@ -2,20 +2,20 @@
 #include "Statistiques.h"
 /*resolution*/
 
-double imput_espVie(Indiv& X, int age, double alea)
+double imput_espVie(Indiv& X, int age, double alea) //// age de la mort de X sachant son age
 {
   int age_deces = age;
   
   for(int a : range(age+1,121)) {
     int t = min(250,X.anaiss%1900+a);
-    if(alea >= M->survie[X.sexe](t,a) / M->survie[X.sexe](t,age))  break;
+    if(alea >= M->survie[X.sexe](t,a) / M->survie[X.sexe](t,age))  break; //// X meurt à a ans si sa probabilité de survivre à cette âge est < alea * probabilité de survivre à son âge actuel 
     age_deces = a;
   }
   return age_deces;
 } 
 
 
-double VAN(vector<double>& v, double tx)
+double VAN(vector<double>& v, double tx) //// Valeur Actuelle Nette : somme de flux de trésorerie pondérés par 1/(1+tx)^i, où i est un indice de temps (plus i est grand, plus v[i] compte fortement dans le calcul.
 {
   double van = 0;
   for(auto i : indices(v)) van += v[i] / std::pow(1+tx,i);
